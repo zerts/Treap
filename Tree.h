@@ -172,13 +172,15 @@ public:
         updateSum();
         updateLongest();
     }
-    ~Node()
+    ~Node(){};
+    void removeTree()
     {
         if (left != NULL)
-            delete(left);
+            left->removeTree();
         if (right != NULL)
-            delete(right);
-    };
+            right->removeTree();
+        delete(this);
+    }
     Node()
     {
         key = 0;
@@ -272,9 +274,11 @@ public:
     {
         root = curr;
     }
-    ~Treap()
+    ~Treap(){};
+    void removeTreap()
     {
-        delete(root);
+        root->removeTree();
+        delete(this);
     }
     void addNode(Node *_left, Node *_right, int _key)
     {
