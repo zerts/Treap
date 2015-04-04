@@ -2,21 +2,23 @@
 
 #include "Tree.h"
 
-const size_t ZERO = 0u, FOUR = 4u;
+const size_t ZERO = 0u, MIN_ARRAY_SIZE = 1u, MAX_ARRAY_SIZE = 1000u;
+const int LITTLE_MAX_RANGE = 10, MIN_RANGE = 1, MAX_RANGE = 10000;
 
-enum TEST_TYPE
+enum test_type
 {
     INSERT,
     ASSIGN,
     GET_SUM,
-    NEXT_PERM
+    NEXT_PERMUTATION,
+    OPERATIONS_NUMBER
 };
 
-bool isEqual(Treap *tree, Arr *arr)
+bool isEqual(Treap *tree, SlowStruct *correct)
 {
     std::vector <int> checkTree, checkArray;
     checkTree = tree->getArray();
-    checkArray = arr->getArray();
+    checkArray = correct->getArray();
     if (checkTree.size() != checkArray.size())
         return false;
     for (size_t i = 0; i < checkArray.size(); i++)
@@ -25,98 +27,99 @@ bool isEqual(Treap *tree, Arr *arr)
     return true;
 }
 
-std::vector <int> generateArray(size_t arraySize, int minRange, int maxRange)
+std::vector <int> generateArray(size_t correctaySize, int minRange, int maxRange)
 {
     std::vector <int> result;
-    for (size_t i = 0; i < arraySize; i++)
+    for (size_t i = 0; i < correctaySize; i++)
         result.push_back(rnd.next(minRange, maxRange));
     return result;
 }
 
-void doubleInsert(Treap *tree, Arr &arr, int key, size_t index)
+void doubleInsert(Treap *tree, SlowStruct *correct, int key, size_t index)
 {
     tree->insert(key, index);
-    arr.insert(key, index);
+    correct->insert(key, index);
 }
 
-void doubleAssign(Treap *tree, Arr &arr, int minRange, int maxRange)
+void doubleAssign(Treap *tree, SlowStruct *correct, int minRange, int maxRange)
 {
     int key = rnd.next(minRange, maxRange);
-    size_t index = rnd.next(ZERO, arr.getSize() - 1u);
+    size_t index = rnd.next(ZERO, correct->getSize() - 1u);
     tree->assign(key, index);
-    arr.assign(key, index);
+    correct->assign(key, index);
 }
 
-bool doubleGetSum(Treap *tree, Arr &arr)
+bool doubleGetSum(Treap *tree, SlowStruct *correct)
 {
-    int sumTree, sumArr;
+    int sumTree, sumCorrect;
     size_t l, r;
-    l = rnd.next(ZERO, arr.getSize() - 1u);
-    r = rnd.next(l, arr.getSize());
+    l = rnd.next(ZERO, correct->getSize() - 1u);
+    r = rnd.next(l + 1u, correct->getSize());
     sumTree = tree->getSegmentSum(l, r);
-    sumArr = arr.getSegmentSum(l, r);
-    return  sumTree == sumArr;
+    sumCorrect = correct->getSegmentSum(l, r);
+    return sumTree == sumCorrect;
 }
 
-void doubleNextPerm(Treap *tree, Arr &arr)
+void doubleNextPermutation(Treap *tree, SlowStruct *correct)
 {
     tree->nextPermutation();
-    arr.nextPermutation();
+    correct->nextPermutation();
 }
 
-void vectorToTree(std::vector <int> &testArray, Treap *tree, Arr &arr)
+void vectorToTreeAndSlowStruct(std::vector <int> &testArray, Treap *tree, SlowStruct *correct)
 {
     for (size_t i = 0; i < testArray.size(); i++)
-        doubleInsert(tree, arr, testArray[i], i);
+        doubleInsert(tree, correct, testArray[i], i);
 }
 
-bool testing(unsigned int numberOfTests, int minRange, int maxRange)
+size_t generateTestType(size_t size)
 {
-    size_t arraySize = rnd.next(1, 100);
-    std::vector <int> testArray = generateArray(arraySize, minRange, maxRange);
-    Node *treeRoot = new Node(0);
-    Treap *tree = new Treap(treeRoot);
-    Arr arr;
-    arr.insert(0, 0);
-    vectorToTree(testArray, tree, arr);
-    bool rightResult = true;
-    TEST_TYPE currTestType;
-    size_t type;
-    for (unsigned int i = 0; i < numberOfTests; i++)
+    if (size > 1u)
+        return rnd.next(ZERO, (size_t)OPERATIONS_NUMBER);
+    else
+        return test_type::INSERT;
+}
+
+bool singleTest(Treap *tree, SlowStruct *correct, int minRange, int maxRange)
+{
+    switch (generateTestType(correct->getSize()))
     {
-        if (arr.getSize() > 10)
-        {
-            type = rnd.next(ZERO, FOUR);
-            switch (type)
-            {
-            case 0:
-                currTestType = TEST_TYPE::INSERT;
-            case 1:
-                currTestType = TEST_TYPE::ASSIGN;
-            case 2:
-                currTestType = TEST_TYPE::GET_SUM;
-            default:
-                currTestType = TEST_TYPE::NEXT_PERM;
-            }
-        }
-        else
-        {
-            currTestType = TEST_TYPE::INSERT;
-        }
-        switch (currTestType)
-        {
-        case INSERT:
-            doubleInsert(tree, arr, rnd.next(rnd.next(minRange, maxRange)), rnd.next(ZERO, arr.getSize()));
-        case ASSIGN:
-            doubleAssign(tree, arr, minRange, maxRange);
-        case GET_SUM:
-            if (!doubleGetSum(tree, arr))
-                rightResult = false;
-        case NEXT_PERM:
-            doubleNextPerm(tree, arr);
-        }
-        if (!isEqual(tree, &arr))
-            rightResult = false;
+    case INSERT:
+        doubleInsert(tree, correct, rnd.next(rnd.next(minRange, maxRange)), rnd.next(ZERO, correct->getSize()));
+    case ASSIGN:
+        doubleAssign(tree, correct, minRange, maxRange);
+    case GET_SUM:
+        if (!doubleGetSum(tree, correct))
+            return false;
+    case NEXT_PERMUTATION:
+        doubleNextPermutation(tree, correct);
     }
-    return rightResult;
+
+    return isEqual(tree, correct);
+}
+
+bool testingWithRanges(unsigned int numberOfTests, int minRange, int maxRange)
+{
+    bool result = true;
+    size_t arraySize = rnd.next(MIN_ARRAY_SIZE, MAX_ARRAY_SIZE);
+    std::vector <int> testArray = generateArray(arraySize, minRange, maxRange);
+    Treap *tree = new Treap(new Node(0));
+    SlowStruct *correct = new SlowStruct;
+    correct->insert(0, 0);
+    vectorToTreeAndSlowStruct(testArray, tree, correct);
+
+    for (unsigned int i = 0; i < numberOfTests; i++)
+        result &= singleTest(tree, correct, minRange, maxRange);
+
+    delete correct;
+    delete tree;
+    return result;
+}
+
+bool testing(unsigned int numberOfTests)
+{
+    bool result = true;
+    result &= testingWithRanges(numberOfTests, MIN_RANGE, MAX_RANGE);
+    result &= testingWithRanges(numberOfTests, MIN_RANGE, LITTLE_MAX_RANGE);
+    return result;
 }
