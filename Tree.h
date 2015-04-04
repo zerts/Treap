@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <iterator>
 #include <vector>
+#include <numeric> 
 #include "testlib.h"
 
 const int _ZERO = 0, _INF = 10000000;
@@ -14,16 +15,34 @@ public:
     virtual void assign(int, size_t) = 0;
     virtual int getSegmentSum(size_t, size_t) = 0;
     virtual bool nextPermutation() = 0;
+    virtual std::vector<int> getArray() = 0;
 };
 
 class Node
 {
-public:
-    int key, priority, sum, leftKey, rightKey;
-    size_t size;
-    unsigned longestBeg, longestEnd;
+private:
+    int key, priority, sum, leftestKey, rightestKey;
+    unsigned int longestIncreasingBegin, longestDecreasingEnd;
     bool reverseFlag;
+    size_t size;
+public:
     Node *left, *right;
+    int getKey()
+    {
+        return key;
+    }
+    int getSum()
+    {
+        return sum;
+    }
+    int getPriority()
+    {
+        return priority;
+    }
+    size_t getSize()
+    {
+        return size;
+    }
     size_t getIndex()
     {
         if (right == NULL)
@@ -50,97 +69,65 @@ public:
     {
         reverseFlag ^= 1;
     }
-    int getLeft()
+    int getLeftestKey()
     {
         if (reverseFlag)
-            return rightKey;
-        return leftKey;
+            return rightestKey;
+        return leftestKey;
     }
-    int getRight()
+    int getRightestKey()
     {
         if (reverseFlag)
-            return leftKey;
-        return rightKey;
+            return leftestKey;
+        return rightestKey;
     }
-    void updateLeft()
+    void updateLeftestKey()
     {
-        leftKey = key;
+        leftestKey = key;
         if (left != NULL)
-            leftKey = left->getLeft();
+            leftestKey = left->getLeftestKey();
     }
-    void updateRight()
+    void updateRightestKey()
     {
-        rightKey = key;
+        rightestKey = key;
         if (right != NULL)
-            rightKey = right->getRight();
+            rightestKey = right->getRightestKey();
     }
-    unsigned int getLongestBeg()
+    unsigned int getLongestIncreasingBegin()
     {
         if (reverseFlag)
-            return longestEnd;
-        return longestBeg;
+            return longestDecreasingEnd;
+        return longestIncreasingBegin;
     }
-    unsigned int getLongestEnd()
+    unsigned int getLongestDecreasingEnd()
     {
         if (reverseFlag)
-            return longestBeg;
-        return longestEnd;
+            return longestIncreasingBegin;
+        return longestDecreasingEnd;
+    }
+    void updateLongestBeginOrEnd(int key, unsigned int getFirstKey, unsigned int &longestFirstEnd, unsigned int getLongestSecondEnd, 
+        unsigned int getLongestSecondBegin, size_t size, unsigned int &longestSecondEnd)
+    {
+        if (getFirstKey >= key)
+            longestFirstEnd += getLongestSecondEnd;
+        if (getLongestSecondBegin == size && getFirstKey <= key)
+            longestSecondEnd += getLongestSecondBegin;
+        else
+            longestSecondEnd = getLongestSecondBegin;
     }
     void updateLongest()
     {
-        if (right == NULL && left == NULL)
+        longestDecreasingEnd = 1u;
+        longestIncreasingBegin = 1u;
+        if (left != NULL)
         {
-            longestBeg = 1u;
-            longestEnd = 1u;
+            updateLongestBeginOrEnd(key, left->getRightestKey(), longestDecreasingEnd, left->getLongestDecreasingEnd(), 
+                left->getLongestIncreasingBegin(), left->size, longestIncreasingBegin);
         }
-        else if (right == NULL)
+        if (right != NULL)
         {
-            longestEnd = 1u;
-            if (left->getRight() >= key)
-                longestEnd += left->getLongestEnd();
-            if (left->getLongestBeg() == left->size && left->getRight() <= key)
-                longestBeg = left->getLongestBeg() + 1u;
-            else
-                longestBeg = left->getLongestBeg();
-        }
-        else if (left == NULL)
-        {
-            longestBeg = 1u;
-            if (right->getLeft() >= key)
-                longestBeg += right->getLongestBeg();
-            if (right->getLongestEnd() == right->size && right->getLeft() <= key)
-                longestEnd = right->getLongestEnd() + 1u;
-            else
-                longestEnd = right->getLongestEnd();
-        }
-        else
-        {
-            if (right->getLongestEnd() < right->size)
-                longestEnd = right->getLongestEnd();
-            else
-            {
-                if (key >= right->getLeft())
-                {
-                    longestEnd = right->size + 1u;
-                    if (key <= left->getRight())
-                        longestEnd += left->getLongestEnd();
-                }
-                else
-                    longestEnd = right->getLongestEnd();
-            }
-            if (left->getLongestBeg() < left->size)
-                longestBeg = left->getLongestBeg();
-            else
-            {
-                if (key >= left->getRight())
-                {
-                    longestBeg = left->size + 1u;
-                    if (key <= right->getLeft())
-                        longestBeg += right->getLongestBeg();
-                }
-                else
-                    longestBeg = left->getLongestBeg();
-            }
+            updateLongestBeginOrEnd(key, right->getLeftestKey(), longestIncreasingBegin, right->getLongestIncreasingBegin(),
+                right->getLongestDecreasingEnd(), right->size, longestDecreasingEnd);
         }
     }
     void push()
@@ -150,8 +137,8 @@ public:
         if (reverseFlag)
         {
             reverseFlag = false;
-            std::swap(longestBeg, longestEnd);
-            std::swap(leftKey, rightKey);
+            std::swap(longestIncreasingBegin, longestDecreasingEnd);
+            std::swap(leftestKey, rightestKey);
             Node *extra = left;
             left = right;
             right = extra;
@@ -166,21 +153,19 @@ public:
         if (this == NULL)
             return;
         push();
-        updateLeft();
-        updateRight();
+        updateLeftestKey();
+        updateRightestKey();
         updateSize();
         updateSum();
         updateLongest();
     }
-    ~Node(){};
-    void removeTree()
+    ~Node()
     {
-        if (left != NULL)
-            left->removeTree();
         if (right != NULL)
-            right->removeTree();
-        delete(this);
-    }
+            delete right;
+        if (left != NULL)
+            delete left;
+    };
     Node()
     {
         key = 0;
@@ -188,10 +173,10 @@ public:
         sum = 0;
         size = 1u;
         reverseFlag = false;
-        longestBeg = 1u;
-        longestEnd = 1u;
-        leftKey = 0;
-        rightKey = 0;
+        longestIncreasingBegin = 1u;
+        longestDecreasingEnd = 1u;
+        leftestKey = 0;
+        rightestKey = 0;
         left = NULL;
         right = NULL;
     };
@@ -202,46 +187,46 @@ public:
         sum = k;
         size = 1u;
         reverseFlag = false;
-        longestBeg = 1u;
-        longestEnd = 1u;
-        leftKey = k;
-        rightKey = k;
+        longestIncreasingBegin = 1u;
+        longestDecreasingEnd = 1u;
+        leftestKey = k;
+        rightestKey = k;
         left = NULL;
         right = NULL;
     }
 };
 
-void split(Node *sourse, size_t index, Node *&_left, Node *&_right)
+void split(Node *source, size_t index, Node *&_left, Node *&_right)
 {
-    if (sourse == NULL)
+    if (source == NULL)
     {
         _left = NULL;
         _right = NULL;
         return;
     }
-    sourse->push();
-    if (sourse->size < index)
+    source->push();
+    if (source->getSize() < index)
     {
-        _left = sourse;
+        _left = source;
         _right = NULL;
         return;
     }
     if (index == 0u)
     {
         _left = NULL;
-        _right = sourse;
+        _right = source;
         return;
     }
-    if (sourse->getIndex() < index)
+    if (source->getIndex() < index)
     {
-        _left = sourse;
-        split(sourse->right, index - sourse->getIndex() - 1, _left->right, _right);
+        _left = source;
+        split(source->right, index - source->getIndex() - 1, _left->right, _right);
         _left->update();
     }
     else
     {
-        _right = sourse;
-        split(sourse->left, index, _left, _right->left);
+        _right = source;
+        split(source->left, index, _left, _right->left);
         _right->update();
     }
 }
@@ -254,7 +239,7 @@ Node * merge(Node *_left, Node *_right)
         return _left;
     _left->push();
     _right->push();
-    if (_left->priority > _right->priority)
+    if (_left->getPriority() > _right->getPriority())
     {
         _left->right = merge(_left->right, _right);
         _left->update();
@@ -274,12 +259,10 @@ public:
     {
         root = curr;
     }
-    ~Treap(){};
-    void removeTreap()
+    ~Treap()
     {
-        root->removeTree();
-        delete(this);
-    }
+        delete root;
+    };
     void addNode(Node *_left, Node *_right, int _key)
     {
         Node *newNode = new Node(_key);
@@ -307,8 +290,8 @@ public:
     {
         Node *_left = NULL, *_middle = NULL, *_right = NULL;
         split(root, r, _middle, _right);
-        split(_middle, l - 1, _left, _middle);
-        int result = _middle->sum;
+        split(_middle, l, _left, _middle);
+        int result = _middle->getSum();
         _left = merge(_left, _middle);
         root = merge(_left, _right);
         return result;
@@ -317,12 +300,12 @@ public:
     bool nextPermutation()
     {
         Node *_left = NULL, *_right = NULL;
-        if (root->getLongestEnd() == root->size)
+        if (root->getLongestDecreasingEnd() == root->getSize())
         {
             root->reverse();
             return false;
         }
-        split(root, root->size - root->getLongestEnd(), _left, _right);
+        split(root, root->getSize() - root->getLongestDecreasingEnd(), _left, _right);
         Node *_lastFromLeft = _left, *_changableFromRight = _right;
         _lastFromLeft->push();
         size_t indexToLeft = _lastFromLeft->getIndex() + 1u, indexToRight = 0u;
@@ -335,36 +318,40 @@ public:
         do
         {
             _changableFromRight->push();
-            if (_changableFromRight->key < _lastFromLeft->key)
+            if (_changableFromRight->getKey() <= _lastFromLeft->getKey())
             {
                 _changableFromRight = _changableFromRight->left;
             }
-            else if (_changableFromRight->key >= _lastFromLeft->key)
+            else if (_changableFromRight->getKey() > _lastFromLeft->getKey())
             {
                 indexToRight += _changableFromRight->getIndex() + 1u;
-                if (_changableFromRight->right == NULL || _changableFromRight->right->getLeft() < _lastFromLeft->key)
+                if (_changableFromRight->right == NULL || _changableFromRight->right->getLeftestKey() <= _lastFromLeft->getKey())
                     break;
                 _changableFromRight = _changableFromRight->right;
             }
         } while (true);
-        int changeKeyFirst = _lastFromLeft->key, changeKeySecond = _changableFromRight->key;
-        Treap l = Treap(_left), r = Treap(_right);
-        l.assign(changeKeySecond, indexToLeft - 1u);
-        r.assign(changeKeyFirst, indexToRight - 1u);
-        r.root->reverse();
-        root = merge(l.root, r.root);
+        int changeKeyFirst = _lastFromLeft->getKey(), changeKeySecond = _changableFromRight->getKey();
+        Treap * l = new Treap(_left), * r = new Treap(_right);
+        l->assign(changeKeySecond, indexToLeft - 1u);
+        r->assign(changeKeyFirst, indexToRight - 1u);
+        r->root->reverse();
+        root = merge(l->root, r->root);
+        l->root = NULL;
+        r->root = NULL;
+        delete l;
+        delete r;
         return true;
     }
 
     std::vector <int> getArray()
     {
-        std::vector <int> result(root->size);
-        for (size_t i = 0; i < root->size; i++)
+        std::vector <int> result(root->getSize());
+        for (size_t i = 0; i < root->getSize(); i++)
         {
-            Node *_left = new Node(0), *_middle = new Node(0), *_right = new Node(0);
+            Node *_left = NULL, *_middle = NULL, *_right = NULL;
             split(root, i + 1, _middle, _right);
             split(_middle, i, _left, _middle);
-            result[i] = _middle->key;
+            result[i] = _middle->getKey();
             _left = merge(_left, _middle);
             root = merge(_left, _right);
         }
@@ -372,31 +359,20 @@ public:
     }
 };
 
-class Arr : public ITree
+class SlowStruct : public ITree
 {
 private:
     std::vector <int> body;
 public:
-    Arr(){};
-    ~Arr(){};
+    SlowStruct(){};
+    ~SlowStruct(){};
     int getSegmentSum(size_t l, size_t r)
     {
-        int result = 0;
-        for (size_t i = l; i <= r; i++)
-            result += body[i];
-        return result;
+        return std::accumulate(body.begin() + l, body.begin() + r, 0LL);
     }
     void insert(int key, size_t index)
     {
-        if (body.size() == 0)
-        {
-            body.push_back(key);
-            return;
-        }
-        body.push_back(body.back());
-        for (size_t i = body.size() - 2; i > index; i--)
-            body[i] = body[i - 1];
-        body[index] = key;
+        body.insert(body.begin() + index, key);
     }
     void assign(int key, size_t index)
     {
